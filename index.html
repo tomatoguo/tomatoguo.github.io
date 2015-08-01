@@ -1,0 +1,94 @@
+---
+layout: default
+---
+<ul class="post-list">
+  {% for post in paginator.posts %}
+  <li>
+    <span class="post-meta">{{ post.date | date: "%Y-%m-%d" }}</span>
+    <h2>
+      <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
+    </h2>
+    <h3>
+      <small>{{ post.excerpt }}</small>
+    </h3>
+  </li>
+  <hr/>
+  {% endfor %}
+</ul>
+{% if paginator.total_pages > 1 %}
+<nav>
+  <ul class="pagination">
+    {% assign pagination_show_start = 3 %}
+    {% assign pagination_show_end = paginator.total_pages | minus: 2 %}
+    {% assign pagination_current_left = paginator.page | minus: 1 %}
+    {% assign pagination_current_right = paginator.page | plus: 1 %}
+    {% assign pagination_ellipsis_left = pagination_show_start | plus: 1 %}
+    {% assign pagination_ellipsis_right = pagination_show_end | minus: 1 %}
+
+    <!-- if previous page exists, show the hyperlink to the previous page, if not, disabled the previous hyperlink.  -->
+    {% if paginator.previous_page %}
+    <li>
+      <a href="{{ paginator.previous_page_path | prepend: site.baseurl }}">Previous</a>
+    </li>
+    {% else %}
+    <li class="disabled">
+      <a>Previous</a>
+    </li>
+    {% endif %}
+
+    <!-- if the count of paginator's total pages greater than 10, show all of them. if not show them with suspension points. -->
+    {% if paginator.total_pages > 10 %}
+      {% for page in (1..paginator.total_pages) %}
+        {% if page == paginator.page %}
+        <li class="active">
+          <a>{{ page }}</a>
+        </li>
+        {% elsif page == 1 %}
+        <li>
+          <a href="{{ '/index.html' | prepend: site.baseurl }}">{{ page }}</a>
+        </li>
+        {% elsif page <= pagination_show_start or page >= pagination_show_end %}
+        <li>
+          <a href="{{ site.paginate_path | prepend: site.baseurl | replace: '//', '/' | replace: ':num', page }}">{{ page }}</a>
+        </li>
+        {% elsif page == pagination_current_left or page == pagination_current_right %}
+        <li>
+          <a href="{{ site.paginate_path | prepend: site.baseurl | replace: '//', '/' | replace: ':num', page }}">{{ page }}</a>
+        </li>
+        {% elsif page == pagination_ellipsis_left or page == pagination_ellipsis_right %}
+        <li class="disabled">
+          <a>...</a>
+        </li>
+        {% endif %}
+      {% endfor %}
+    {% else %}
+      {% for page in (1..paginator.total_pages) %}
+        {% if page == paginator.page %}
+        <li class="active">
+          <a>{{ page }}</a>
+        </li>
+        {% elsif page == 1 %}
+        <li>
+          <a href="{{ '/index.html' | prepend: site.baseurl }}">{{ page }}</a>
+        </li>
+        {% else %}
+        <li>
+          <a href="{{ site.paginate_path | prepend: site.baseurl | replace: '//', '/' | replace: ':num', page }}">{{ page }}</a>
+        </li>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
+    <!-- if next page exists, show the hyperlink to the next page, if not, disabled the next hyperlink.  -->
+    {% if paginator.next_page %}
+    <li>
+      <a href="{{ paginator.next_page_path | prepend: site.baseurl }}">Next</a>
+    </li>
+    {% else %}
+    <li class="disabled">
+      <a>Next</a>
+    </li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}

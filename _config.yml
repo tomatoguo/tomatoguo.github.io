@@ -1,0 +1,14 @@
+# Site settings
+title: Tomato Guo
+email: tomatoguo@hotmail.com
+description: tomatoguo的个人博客
+baseurl: "" # the subpath of your site, e.g. /blog/
+url: "http://tomatoguo.com" # the base hostname & protocol for your site
+github_username: tomatoguo
+github: https://github.com/tomatoguo
+
+# Build settings
+markdown: kramdown
+highlighter: payments
+paginate: 2
+paginate_path: "/blog/page:num/"
