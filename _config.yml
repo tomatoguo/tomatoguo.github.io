@@ -10,5 +10,5 @@ github: https://github.com/tomatoguo
 # Build settings
 markdown: kramdown
 highlighter: payments
-paginate: 2
+paginate: 8
 paginate_path: "/blog/page:num/"
