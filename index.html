@@ -4,12 +4,12 @@ layout: default
 <ul class="post-list">
   {% for post in paginator.posts %}
   <li>
-    <span class="post-meta">{{ post.date | date: "%Y-%m-%d" }}</span>&nbsp;&nbsp;
+    <span class="post-meta">{{ post.date | date: "%Y-%m-%d" }}</span>
     <h2>
       <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
     </h2>
     {% for category in post.categories %}
-      <span class="label label-success">{{ category }}</span>
+    <span class="label label-success">{{ category }}</span>
     {% endfor %}
     <h3>
       <small>{{ post.excerpt }}</small>
