@@ -32,7 +32,7 @@ layout: default
     </li>
     {% else %}
     <li class="disabled">
-      <a>Previous</a>
+      <a href="javascript:void(0);">Previous</a>
     </li>
     {% endif %}
 
@@ -41,7 +41,7 @@ layout: default
       {% for page in (1..paginator.total_pages) %}
         {% if page == paginator.page %}
         <li class="active">
-          <a>{{ page }}</a>
+          <a href="javascript:void(0);">{{ page }}</a>
         </li>
         {% elsif page == 1 %}
         <li>
@@ -57,7 +57,7 @@ layout: default
         </li>
         {% elsif page == pagination_ellipsis_left or page == pagination_ellipsis_right %}
         <li class="disabled">
-          <a>...</a>
+          <a href="javascript:void(0);">...</a>
         </li>
         {% endif %}
       {% endfor %}
@@ -65,7 +65,7 @@ layout: default
       {% for page in (1..paginator.total_pages) %}
         {% if page == paginator.page %}
         <li class="active">
-          <a>{{ page }}</a>
+          <a href="javascript:void(0);">{{ page }}</a>
         </li>
         {% elsif page == 1 %}
         <li>
@@ -86,7 +86,7 @@ layout: default
     </li>
     {% else %}
     <li class="disabled">
-      <a>Next</a>
+      <a href="javascript:void(0);">Next</a>
     </li>
     {% endif %}
   </ul>
