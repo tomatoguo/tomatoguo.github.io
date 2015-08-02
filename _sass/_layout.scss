@@ -178,6 +178,10 @@
     }
 }
 
+.post-list a:hover {
+    text-decoration: none;
+}
+
 .post-meta {
     font-size: $small-font-size;
     color: $grey-color;

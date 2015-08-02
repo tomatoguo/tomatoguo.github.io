@@ -6,6 +6,9 @@ layout: default
 	<p class="post-meta">
 		{{ page.date | date: "%Y-%m-%d" }}{% if page.author %} • {{ page.author }}{% endif %}{% if page.meta %} • {{ page.meta }}{% endif %}
 	</p>
+    {% for category in page.categories %}
+      <span class="label label-success">{{ category }}</span>
+    {% endfor %}
 </header>
 
 <article class="post-content">{{ content }}</article>
