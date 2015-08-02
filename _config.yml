@@ -1,7 +1,7 @@
 # Site settings
-title: Tomato Guo
+title: Tomato Guo的个人博客
 email: tomatoguo@hotmail.com
-description: tomatoguo的个人博客
+description: Stay Hungry，Stay Foolish
 baseurl: "" # the subpath of your site, e.g. /blog/
 url: "http://tomatoguo.com" # the base hostname & protocol for your site
 github_username: tomatoguo
