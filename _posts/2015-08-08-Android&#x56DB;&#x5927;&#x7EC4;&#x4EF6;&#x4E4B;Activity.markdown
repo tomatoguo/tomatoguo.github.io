@@ -9,6 +9,4 @@ categories: android
 一、Activity简介
 ------
 
-![activity-basic-lifecycle.png](activity-basic-lifecycle)
-
-[activity-basic-lifecycle]: https://ooo.0o0.ooo/2015/08/08/55c5fd9f11748.png
+![activity-basic-lifecycle.png](https://ooo.0o0.ooo/2015/08/08/55c5fd9f11748.png "activity-basic-lifecycle.png")
