@@ -18,9 +18,16 @@ Activity是Android应用程序中最常见也是最重要的组件之一，Activ
 
 当用户进入或离开一个Android应用程序时，Activity通过调用不同的生命周期方法在上图所示的生命周期中不断进行转换。在一个Activity从启动到销毁的过程中，这些生命周期方法被调用的顺序一般是：<code>onCreate()</code> -> <code>onStart()</code> -> <code>onResume()</code> -> <code>onPause()</code> -> <code>onStop()</code> -> <code>onDestroy()</code>
 
-
 下面对这些生命周期方法进行详细介绍：
 
 <code>onCreate()</code>
 
 当Activity被初次创建时调用该生命周期方法，在<code>onCreate()</code>方法中，我们应该完成一些初始化工作，例如创建用户界面、初始化数据等，同时，该方法向我们提供了一个存储有Activity的一些状态及数据的Bundle（如果该Bundle存在的话），我们可以利用Bundle进行一些初始化工作。
+
+<code>onStart()</code>
+
+在<code>onCreate()</code>或<code>onStart()</code>方法之后被调用，调用时机为当activity变得对用户可见时。
+
+<code>onResume()</code>
+
+当Activity可以和用户进行交互时调用该方法，调用此方法后，当前Activity会处于Activity栈的栈顶。
