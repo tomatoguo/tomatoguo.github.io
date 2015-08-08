@@ -1,0 +1,8 @@
+---
+layout: post
+title:  "Android四大组件之Activity"
+author: 郭永辉
+date:   2015-08-08 20:58:50
+categories: android
+---
+![activity-basic-lifecycle.png](https://ooo.0o0.ooo/2015/08/08/55c5fd9f11748.png "activity-basic-lifecycle.png")
