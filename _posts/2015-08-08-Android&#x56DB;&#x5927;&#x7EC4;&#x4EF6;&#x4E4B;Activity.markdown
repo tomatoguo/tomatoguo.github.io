@@ -31,3 +31,7 @@ Activity是Android应用程序中最常见也是最重要的组件之一，Activ
 <code>onResume()</code>
 
 当Activity可以和用户进行交互时调用该方法，调用此方法后，当前Activity会处于Activity栈的栈顶。
+
+<code>onPause()</code>
+
+当系统要开始恢复其他Activity时调用此方法，该方法通常用来将未保存的变更保存到持久化数据中、停止动画和其他占用cpu的事务。此方法的实现需要占用尽量少的时间，因为直到<code>onPause()</code>返回后另一个Activity才会被系统恢复。
