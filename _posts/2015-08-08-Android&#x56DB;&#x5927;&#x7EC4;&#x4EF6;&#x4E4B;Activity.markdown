@@ -41,5 +41,3 @@ Activity是Android应用程序中最常见也是最重要的组件之一，Activ
 <code>onDestroy()</code>
 
 当Activity的<code>finish()</code>方法被调用时此生命周期方法会被调用，例如用户按下Back键时，或者系统为了节省空间清除Activity实例时会调用此方法。
-
-![activity-basic-lifecycle.png](https://ooo.0o0.ooo/2015/08/09/55c6205d2ccc3.png "activity-basic-lifecycle.png")
