@@ -25,7 +25,7 @@ Activity是Android应用程序中最常见也是最重要的组件之一，Activ
 
 <code>onStart()</code>
 
-在<code>onCreate()</code>或<code>onStart()</code>方法之后被调用，调用时机为当activity变得对用户可见时。
+在<code>onCreate()</code>或<code>onRestart()</code>方法之后被调用，调用时机为当activity变得对用户可见时。
 
 <code>onResume()</code>
 
@@ -34,3 +34,12 @@ Activity是Android应用程序中最常见也是最重要的组件之一，Activ
 <code>onPause()</code>
 
 当系统要开始恢复其他Activity时调用此方法，该方法通常用来将未保存的变更保存到持久化数据中、停止动画和其他占用cpu的事务。此方法的实现需要占用尽量少的时间，因为直到<code>onPause()</code>返回后另一个Activity才会被系统恢复。
+
+<code>onStop</code>
+当Activity不再对用户可见时调用此方法。当一个新的Activity被启动后，一个已经存在的Activity被置于新Activity前面或者当前Activity被销毁时此方法会被调用。
+
+<code>onDestroy()</code>
+
+当Activity的<code>finish()</code>方法被调用时此生命周期方法会被调用，例如用户按下Back键时，或者系统为了节省空间清除Activity实例时会调用此方法。
+
+![activity-basic-lifecycle.png](https://ooo.0o0.ooo/2015/08/09/55c6205d2ccc3.png "activity-basic-lifecycle.png")
