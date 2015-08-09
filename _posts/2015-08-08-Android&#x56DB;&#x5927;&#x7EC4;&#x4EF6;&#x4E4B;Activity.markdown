@@ -15,29 +15,8 @@ Activity是Android应用程序中最常见也是最重要的组件之一，Activ
 
 ![activity_lifecycle.png](https://ooo.0o0.ooo/2015/08/08/55c608bdb1a12.png "activity_lifecycle.png")
 
-当用户进入或离开一个Android应用程序时，Activity通过调用不同的生命周期方法在上图所示的生命周期中不断进行转换。在一个Activity从启动到销毁的过程中，这些生命周期方法被调用的顺序一般是：<code>onCreate()</code> -> <code>onStart()</code> -> <code>onResume()</code> -> <code>onPause()</code> -> <code>onStop()</code> -> <code>onDestroy()</code>
+在应用程序运行的过程中，Activity通过调用不同的生命周期方法在上图所示的生命周期中不断进行转换。在一个Activity从启动到销毁的过程中，这些生命周期方法被调用的顺序一般是：<code>onCreate()</code> -> <code>onStart()</code> -> <code>onResume()</code> -> <code>onPause()</code> -> <code>onStop()</code> -> <code>onDestroy()</code>
 
-下面对这些生命周期方法进行详细介绍：
+由上图可知，当Activity被初次创建时，<code>onCreate()</code>方法被调用，在此方法中需要完成创建用户界面、初始化数据等任务，同时，该方法的参数<code>Bundle savedInstanceState</code>为已保存的Activity实例的状态，我们可以利用该参数完成一些初始化工作，例如屏幕旋转会导致当前Activity的实例被销毁然后一个新的Activity实例被创建，如果我们需要保留旋转前Activity的一些状态或数据并在新的Activity实例中使用就会用到<code>onCreate()</code>方法的<code>Bundle savedInstanceState</code>参数，在后面会进行详细说明。
 
-<code>onCreate()</code>
-
-当Activity被初次创建时调用该生命周期方法，在<code>onCreate()</code>方法中，我们应该完成一些初始化工作，例如创建用户界面、初始化数据等，同时，该方法向我们提供了一个存储有Activity的一些状态及数据的Bundle（如果该Bundle存在的话），我们可以利用Bundle进行一些初始化工作。
-
-<code>onStart()</code>
-
-在<code>onCreate()</code>或<code>onRestart()</code>方法之后被调用，调用时机为当activity变得对用户可见时。
-
-<code>onResume()</code>
-
-当Activity可以和用户进行交互时调用该方法，调用此方法后，当前Activity会处于Activity栈的栈顶。
-
-<code>onPause()</code>
-
-当系统要开始恢复其他Activity时调用此方法，该方法通常用来将未保存的变更保存到持久化数据中、停止动画和其他占用cpu的事务。此方法的实现需要占用尽量少的时间，因为直到<code>onPause()</code>返回后另一个Activity才会被系统恢复。
-
-<code>onStop</code>
-当Activity不再对用户可见时调用此方法。当一个新的Activity被启动后，一个已经存在的Activity被置于新Activity前面或者当前Activity被销毁时此方法会被调用。
-
-<code>onDestroy()</code>
-
-当Activity的<code>finish()</code>方法被调用时此生命周期方法会被调用，例如用户按下Back键时，或者系统为了节省空间清除Activity实例时会调用此方法。
+紧随<code>onCreate()</code>方法之后被调用的是<code>onStart()</code>，在调用此方法后Activity的状态由不可见变为可见。但此时处于Started状态的Activity还无法与用户进行交互，需在调用<code>onResume()</code>方法后，用户才可以与Activity进行交互，此时Activity的状态变为Running并显示在屏幕上，同时处于Activity栈的栈顶。
