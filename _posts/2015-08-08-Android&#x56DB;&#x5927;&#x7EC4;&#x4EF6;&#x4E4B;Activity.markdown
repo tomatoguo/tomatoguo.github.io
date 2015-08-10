@@ -175,4 +175,4 @@ AndroidManifest.xml配置文件
 
 ![lifecycle-when-start-another-activity.png](https://ooo.0o0.ooo/2015/08/10/55c8acfe8eb5e.png "lifecycle-when-start-another-activity.png")
 
-[=====> Source Code <=====](https://github.com/tomatoguo/Activity-Lifecycle)
+[Source Code](https://github.com/tomatoguo/Activity-Lifecycle)
