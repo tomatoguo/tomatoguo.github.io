@@ -100,7 +100,7 @@ Activity运行时点击back键的生命周期
 
 Activity可通过Intent启动，通过Intent启动Activity有两种不用的方式，分别是显式和隐式。
 
-### 栗子 —— Activity的显式启动与隐式启动
+#### 栗子 —— Activity的显式启动与隐式启动
 
 显式启动与隐式启动Activity的代码
 
@@ -154,11 +154,11 @@ AndroidManifest.xml配置文件
 	    </intent-filter>
 	</activity>
 
-### 栗子结束 —— Activity的显式启动与隐式启动
+#### 栗子结束 —— Activity的显式启动与隐式启动
 
 在上面的代码中，我们分别通过显示和隐式两种方式来启动同一个Activity。
 
-在显示启动Activity的过程中，我们只需要实例化一个Intent，并指定实现要启动的Activity的类所属包的上下文以及要启动的Activity的Class对象即可，在本例中MainActivity与AnotherActivity处于同一个包下，因此使用MAinActivity.this即可。
+在显示启动Activity的过程中，我们只需要实例化一个Intent，并指定实现要启动的Activity的类所属包的上下文以及要启动的Activity的Class对象即可，在本例中MainActivity与AnotherActivity处于同一个包下，因此使用MainActivity.this即可。
 
 而隐式启动Activity的过程就相对复杂一些，以下为一个隐式Intent的主要组成部分：
 
