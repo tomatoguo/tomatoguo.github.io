@@ -154,6 +154,8 @@ AndroidManifest.xml配置文件
 	    </intent-filter>
 	</activity>
 
+### 栗子结束 —— Activity的显式启动与隐式启动
+
 在上面的代码中，我们分别通过显示和隐式两种方式来启动同一个Activity。
 
 在显示启动Activity的过程中，我们只需要实例化一个Intent，并指定实现要启动的Activity的类所属包的上下文以及要启动的Activity的Class对象即可，在本例中MainActivity与AnotherActivity处于同一个包下，因此使用MAinActivity.this即可。
