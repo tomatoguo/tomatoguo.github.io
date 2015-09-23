@@ -10,3 +10,11 @@ categories: android
 
 #### RecycleBin
 
+ListView类继承自AbsListView类，RecycleBin为AbsListView的内部类，用于复用布局中的视图。下面对RecycleBin的一些字段和方法进行说明。
+
+		/**
+         * Views that were on screen at the start of layout. This array is populated at the start of
+         * layout, and at the end of layout all view in mActiveViews are moved to mScrapViews.
+         * Views in mActiveViews represent a contiguous range of Views, with position of the first
+         * view store in mFirstActivePosition.
+         */
