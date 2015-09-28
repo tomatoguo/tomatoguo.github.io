@@ -8,13 +8,452 @@ categories: android
 
 ### ListView缓存机制
 
-#### RecycleBin
+Android中的ListView是用于显示列表的控件。当我们的数据比较多时，例如我们使用ListView来显示图片，将有1000张甚至更多图片需要显示，如果我们将所有数据都装载到内存中，那么极有可能发生OOM，因此ListView使用了一个缓存机制来更高效地加载数据。
 
-ListView类继承自AbsListView类，RecycleBin为AbsListView的内部类，用于复用布局中的视图。下面对RecycleBin的一些字段和方法进行说明。
+![listview_structure](https://ooo.0o0.ooo/2015/09/28/56094c520c856.png)
+
+从上图中我们可以看到ListView继承自AbsListView，AbsListView同时也是GridView的父类，AbsListView继承自AdapterView，我们也可以看到，ListView的本质仍然是一个View，因此需调用绘制一个View过程中的onMeasure()、onLayout()和onDraw()方法。
+
+ListView缓存机制的实现主要依靠于AbsListView中的RecycleBin类，RecycleBin类中有几个重要的变量：
+
+*	mActiveViews，类型为View数组，当初次加载布局ListView时会使用到。
+*	mScrapViews，类型为ArrayList<View>数组，每个数组中的每一个ArrayList<View>对应于一种ViewType，而每一个ArrayList<View>中则包含对应的ViewType的可复用的视图。
+
+接下来我们从ListView的onLayout()方法看起，在ListView中并没有该方法的实现，而是在其父类AbsListView中实现的。
+
+	@Override
+	protected void onLayout(boolean changed, int l, int t, int r, int b) {
+	    super.onLayout(changed, l, t, r, b);
+
+	    mInLayout = true;
+
+	    final int childCount = getChildCount();
+	    if (changed) {
+	        for (int i = 0; i < childCount; i++) {
+	            getChildAt(i).forceLayout();
+	        }
+	        mRecycler.markChildrenDirty();
+	    }
+
+	    layoutChildren();
+	    mInLayout = false;
+
+	    mOverscrollMax = (b - t) / OVERSCROLL_LIMIT_DIVISOR;
+
+	    // TODO: Move somewhere sane. This doesn't belong in onLayout().
+	    if (mFastScroll != null) {
+	        mFastScroll.onItemCountChanged(getChildCount(), mItemCount);
+	    }
+	}
+
+在这个方法中，首先获取到子视图的数量（即列表项视图的个数），由于我们是第一次加载ListView因此此时没有任何子视图存在，如果当前视图发生变化，那么会强制每一个子视图在下一次布局时进行重新布局。
+
+接下来我们可以看到在onLayout()方法中调用了layoutChildren()方法，此方法在AbsListView类中声明，在其子类中实现，所以我们看到ListView中的layoutChildren()方法，layoutChildren()方法略长，在此只贴出我理解的一部分代码。
+
+	@Override
+    protected void layoutChildren() {
+        
+        ...
+
+        try {
+            super.layoutChildren();
+
+            ...
+
+            final int childrenTop = mListPadding.top;
+            final int childrenBottom = mBottom - mTop - mListPadding.bottom;
+            final int childCount = getChildCount();
+
+            ...
+
+            // Pull all children into the RecycleBin.
+            // These views will be reused if possible
+            final int firstPosition = mFirstPosition;
+            final RecycleBin recycleBin = mRecycler;
+            if (dataChanged) {
+                for (int i = 0; i < childCount; i++) {
+                    recycleBin.addScrapView(getChildAt(i), firstPosition+i);
+                }
+            } else {
+                recycleBin.fillActiveViews(childCount, firstPosition);
+            }
+
+            // Clear out old views
+            detachAllViewsFromParent();
+            recycleBin.removeSkippedScrap();
+
+            switch (mLayoutMode) {
+            case LAYOUT_SET_SELECTION:
+                if (newSel != null) {
+                    sel = fillFromSelection(newSel.getTop(), childrenTop, childrenBottom);
+                } else {
+                    sel = fillFromMiddle(childrenTop, childrenBottom);
+                }
+                break;
+            case LAYOUT_SYNC:
+                sel = fillSpecific(mSyncPosition, mSpecificTop);
+                break;
+            case LAYOUT_FORCE_BOTTOM:
+                sel = fillUp(mItemCount - 1, childrenBottom);
+                adjustViewsUpOrDown();
+                break;
+            case LAYOUT_FORCE_TOP:
+                mFirstPosition = 0;
+                sel = fillFromTop(childrenTop);
+                adjustViewsUpOrDown();
+                break;
+            case LAYOUT_SPECIFIC:
+                sel = fillSpecific(reconcileSelectedPosition(), mSpecificTop);
+                break;
+            case LAYOUT_MOVE_SELECTION:
+                sel = moveSelection(oldSel, newSel, delta, childrenTop, childrenBottom);
+                break;
+            default:
+                if (childCount == 0) {
+                    if (!mStackFromBottom) {
+                        final int position = lookForSelectablePosition(0, true);
+                        setSelectedPositionInt(position);
+                        sel = fillFromTop(childrenTop);
+                    } else {
+                        final int position = lookForSelectablePosition(mItemCount - 1, false);
+                        setSelectedPositionInt(position);
+                        sel = fillUp(mItemCount - 1, childrenBottom);
+                    }
+                } else {
+                    if (mSelectedPosition >= 0 && mSelectedPosition < mItemCount) {
+                        sel = fillSpecific(mSelectedPosition,
+                                oldSel == null ? childrenTop : oldSel.getTop());
+                    } else if (mFirstPosition < mItemCount) {
+                        sel = fillSpecific(mFirstPosition,
+                                oldFirst == null ? childrenTop : oldFirst.getTop());
+                    } else {
+                        sel = fillSpecific(0, childrenTop);
+                    }
+                }
+                break;
+            }
+
+            // Flush any cached views that did not get reused above
+            recycleBin.scrapActiveViews();
+
+            ...
+
+        } finally {
+            if (!blockLayoutRequests) {
+                mBlockLayoutRequests = false;
+            }
+        }
+    }
+
+在该方法中，首先会计算子视图的top位置以及bottom位置，以及获取当前子视图的个数，由于此时没有子视图存在所以childCount的值为0，接下来获取到父类中实例化的RecycleBin，由于数据源并未变化，因此执行recycleBin.fillActiveViews(childCount, firstPosition)语句，这句代码的含义是将当前显示的子视图填充到RecycleBin中的mActiveViews中去，上面说过此时没有子视图存在因此该行代码在这时并没有什么luan用，此时ListView处于万废待兴的状态因此detachAllViewsFromParent()以及recycleBin.removeSkippedScrap()的调用此时也是然并卵，下面看到对mLayoutMode的一个switch语句，一般我们进到默认default分支中，当前childCount值为0并且一般来说我们布局ListView选择的是默认的从上至下布局（其他情况也是类似不再另外说明），在这个if语句中调用了fillFromTop(childrenTop)方法，我们跟进此方法。
+
+    /**
+     * Fills the list from top to bottom, starting with mFirstPosition
+     *
+     * @param nextTop The location where the top of the first item should be
+     *        drawn
+     *
+     * @return The view that is currently selected
+     */
+    private View fillFromTop(int nextTop) {
+        mFirstPosition = Math.min(mFirstPosition, mSelectedPosition);
+        mFirstPosition = Math.min(mFirstPosition, mItemCount - 1);
+        if (mFirstPosition < 0) {
+            mFirstPosition = 0;
+        }
+        return fillDown(mFirstPosition, nextTop);
+    }
+
+fillFromTop(int nextTop)方法对当前显示的第一个视图的位置进行了一下检查，填充视图的操作是在该方法中调用的fillDown(mFirstPosition, nextTop)方法中执行的，我们继续跟进。
 
 	/**
-	* Views that were on screen at the start of layout. This array is populated at the start of
-	* layout, and at the end of layout all view in mActiveViews are moved to mScrapViews.
-	* Views in mActiveViews represent a contiguous range of Views, with position of the first
-	* view store in mFirstActivePosition.
-	*/
+     * Fills the list from pos down to the end of the list view.
+     *
+     * @param pos The first position to put in the list
+     *
+     * @param nextTop The location where the top of the item associated with pos
+     *        should be drawn
+     *
+     * @return The view that is currently selected, if it happens to be in the
+     *         range that we draw.
+     */
+    private View fillDown(int pos, int nextTop) {
+        View selectedView = null;
+
+        int end = (mBottom - mTop);
+        if ((mGroupFlags & CLIP_TO_PADDING_MASK) == CLIP_TO_PADDING_MASK) {
+            end -= mListPadding.bottom;
+        }
+
+        while (nextTop < end && pos < mItemCount) {
+            // is this the selected item?
+            boolean selected = pos == mSelectedPosition;
+            View child = makeAndAddView(pos, nextTop, true, mListPadding.left, selected);
+
+            nextTop = child.getBottom() + mDividerHeight;
+            if (selected) {
+                selectedView = child;
+            }
+            pos++;
+        }
+
+        setVisibleRangeHint(mFirstPosition, mFirstPosition + getChildCount() - 1);
+        return selectedView;
+    }
+
+fillDown(int pos, int nextTop)方法中计算当前ListView的底部位置，并设置一个循环，当下一个视图的顶部位置小于ListView的底部位置并且视图位置小于当前所显示的总数时循环会一直进行，在循环中调用的makeAndAddView(pos, nextTop, true, mListPadding.left, selected)方法即是我们添加子视图的开始。
+
+    /**
+     * Obtain the view and add it to our list of children. The view can be made
+     * fresh, converted from an unused view, or used as is if it was in the
+     * recycle bin.
+     *
+     * @param position Logical position in the list
+     * @param y Top or bottom edge of the view to add
+     * @param flow If flow is true, align top edge to y. If false, align bottom
+     *        edge to y.
+     * @param childrenLeft Left edge where children should be positioned
+     * @param selected Is this position selected?
+     * @return View that was added
+     */
+    private View makeAndAddView(int position, int y, boolean flow, int childrenLeft,
+            boolean selected) {
+        View child;
+
+
+        if (!mDataChanged) {
+            // Try to use an existing view for this position
+            child = mRecycler.getActiveView(position);
+            if (child != null) {
+                // Found it -- we're using an existing child
+                // This just needs to be positioned
+                setupChild(child, position, y, flow, childrenLeft, selected, true);
+
+                return child;
+            }
+        }
+
+        // Make a new view for this position, or convert an unused view if possible
+        child = obtainView(position, mIsScrap);
+
+        // This needs to be positioned and measured
+        setupChild(child, position, y, flow, childrenLeft, selected, mIsScrap[0]);
+
+        return child;
+    }
+
+由于数据源没有改变，因此在这里会尝试从mActiveViews获取子视图的实例，而此时mActiveViews是空的！因此会继续执行到obtainView(position, mIsScrap)方法。
+
+    /**
+     * Get a view and have it show the data associated with the specified
+     * position. This is called when we have already discovered that the view is
+     * not available for reuse in the recycle bin. The only choices left are
+     * converting an old view or making a new one.
+     *
+     * @param position The position to display
+     * @param isScrap Array of at least 1 boolean, the first entry will become true if
+     *                the returned view was taken from the scrap heap, false if otherwise.
+     *
+     * @return A view displaying the data associated with the specified position
+     */
+    View obtainView(int position, boolean[] isScrap) {
+        Trace.traceBegin(Trace.TRACE_TAG_VIEW, "obtainView");
+
+        isScrap[0] = false;
+
+        ...
+
+        final View scrapView = mRecycler.getScrapView(position);
+        final View child = mAdapter.getView(position, scrapView, this);
+        if (scrapView != null) {
+            if (child != scrapView) {
+                // Failed to re-bind the data, return scrap to the heap.
+                mRecycler.addScrapView(scrapView, position);
+            } else {
+                isScrap[0] = true;
+
+                // Finish the temporary detach started in addScrapView().
+                child.dispatchFinishTemporaryDetach();
+            }
+        }
+
+        ....
+
+        return child;
+    }
+
+该方法中会尝试从mScrapViews中获取可重用的视图，然而目前为止并没有任何试图被缓存，因此在我们调用mAdapter.getView(position, scrapView, this)方法时传入的scrapView为null，这便对应着我们写ListView的适配器的getView(int position, View convertView, ViewGroup parent)方法，及初次加载时传入的convertView总是空的，因此我们需要使用LayoutInflater来从xml文件中加载一个布局。由于scrapView为空，因此我们直接返回child，同时isScrap[0]为false。
+
+接下来便返回到makeAndAddView(int position, int y, boolean flow, int childrenLeft, boolean selected)方法中并执行setupChild操作。
+
+	/**
+     * Add a view as a child and make sure it is measured (if necessary) and
+     * positioned properly.
+     *
+     * @param child The view to add
+     * @param position The position of this child
+     * @param y The y position relative to which this view will be positioned
+     * @param flowDown If true, align top edge to y. If false, align bottom
+     *        edge to y.
+     * @param childrenLeft Left edge where children should be positioned
+     * @param selected Is this position selected?
+     * @param recycled Has this view been pulled from the recycle bin? If so it
+     *        does not need to be remeasured.
+     */
+    private void setupChild(View child, int position, int y, boolean flowDown, int childrenLeft,
+            boolean selected, boolean recycled) {
+        
+        ...
+
+        if ((recycled && !p.forceAdd) || (p.recycledHeaderFooter
+                && p.viewType == AdapterView.ITEM_VIEW_TYPE_HEADER_OR_FOOTER)) {
+            attachViewToParent(child, flowDown ? -1 : 0, p);
+        } else {
+            p.forceAdd = false;
+            if (p.viewType == AdapterView.ITEM_VIEW_TYPE_HEADER_OR_FOOTER) {
+                p.recycledHeaderFooter = true;
+            }
+            addViewInLayout(child, flowDown ? -1 : 0, p, true);
+        }
+		...
+    
+    }
+
+在这里我们传入isScrap[0]作为recycled的值，即标识这该视图并不是重用的视图，因此需要调用addViewInLayout()方法将其添加到ListView中。
+
+至此，onLayout()方法的第一次调用基本完毕，由于第一次调用onLayout()前ListView中无任何子视图存在，而在第一次调用onLayout()后我们已经加载了第一屏的视图，因此父视图即ListView的状态会发生改变，从而使得onLayout()方法被第二次调用，在第一次的调用中我们从xml文件中加载了第一页的子视图的布局，这些操作是费时操作，如果第二次重复执行这些操作，显然会产生不必要的开销，那么我们来看下当第二次onLayout()调用时是怎样的一个执行过程。
+
+当第二次调用时，同样执行到recycleBin.fillActiveViews(childCount, firstPosition)这行代码，但是由于此时我们已经加载了第一屏视图，因此childCount不再为0，所以执行此行代码会将当前加载的第一屏视图填充到mActiveViews中，而在第一次onLayout()调用中然并卵的detachAllViewsFromParent()此时经过执行会将第一次加载到屏幕上的第一屏子视图全部移除从而为第二次的加载做好准备。同样进入下面的switch的default分支中，此时childCount不为0，因此执行到else分支，一般来说第一个可见视图的位置会小于子视图总数，因此会指定到内嵌的else if分支，即执行fillSpecific()方法，跟进。
+
+在fillSpecific()方法中依然会执行fillDown()方法然后在while循环中调用makeAndAddView(pos, nextTop, true, mListPadding.left, selected)，由于此时我们已经使用了第一屏的子视图来填充mActiveViews，因此在makeAndAddView()方法中我们可以直接从RecycleBin中的mActiveViews中获取到已经加载完毕的可重用的视图，并调用setupChild()方法，此时传入的recycled的值为true，此时直接将该child重新attach到ListView上即可而不用再调用addViewInLayout()方法。
+
+至此，第二次onLayout()方法调用完毕，在第二次调用中重用了第一次调用onLayout()过程中加载的视图并将其重新attach到ListView中，省去了从xml中加载等操作，因此第二次onLayout()更有效率的重新加载了第一屏的子视图。
+
+接下来便是用户滑动ListView查看其它列表项的过程中的视图复用。
+
+用户在ListView上的滑动事件是在onTouchEvent()方法中进行监听的，在对ACTION_MOVE事件的监听中经过层层调用来到trackMotionScroll(int deltaY, int incrementalDeltaY)
+
+    /**
+     * Track a motion scroll
+     *
+     * @param deltaY Amount to offset mMotionView. This is the accumulated delta since the motion
+     *        began. Positive numbers mean the user's finger is moving down the screen.
+     * @param incrementalDeltaY Change in deltaY from the previous event.
+     * @return true if we're already at the beginning/end of the list and have nothing to do.
+     */
+    boolean trackMotionScroll(int deltaY, int incrementalDeltaY) {
+
+    	...
+
+        if (down) {
+            int top = -incrementalDeltaY;
+            if ((mGroupFlags & CLIP_TO_PADDING_MASK) == CLIP_TO_PADDING_MASK) {
+                top += listPadding.top;
+            }
+            for (int i = 0; i < childCount; i++) {
+                final View child = getChildAt(i);
+                if (child.getBottom() >= top) {
+                    break;
+                } else {
+                    count++;
+                    int position = firstPosition + i;
+                    if (position >= headerViewsCount && position < footerViewsStart) {
+                        // The view will be rebound to new data, clear any
+                        // system-managed transient state.
+                        child.clearAccessibilityFocus();
+                        mRecycler.addScrapView(child, position);
+                    }
+                }
+            }
+        } else {
+            int bottom = getHeight() - incrementalDeltaY;
+            if ((mGroupFlags & CLIP_TO_PADDING_MASK) == CLIP_TO_PADDING_MASK) {
+                bottom -= listPadding.bottom;
+            }
+            for (int i = childCount - 1; i >= 0; i--) {
+                final View child = getChildAt(i);
+                if (child.getTop() <= bottom) {
+                    break;
+                } else {
+                    start = i;
+                    count++;
+                    int position = firstPosition + i;
+                    if (position >= headerViewsCount && position < footerViewsStart) {
+                        // The view will be rebound to new data, clear any
+                        // system-managed transient state.
+                        child.clearAccessibilityFocus();
+                        mRecycler.addScrapView(child, position);
+                    }
+                }
+            }
+        }
+
+        ...
+
+        if (spaceAbove < absIncrementalDeltaY || spaceBelow < absIncrementalDeltaY) {
+            fillGap(down);
+        }
+
+        ...
+
+    }
+
+
+在该方法中，对用户滑动方向进行判断，若子视图往上滑出或往下滑出则将其加入到RecycleBin中的mScrapViews中，并在接下来调用fillGap()方法来加载滑入屏幕的视图，跟进fillGap()方法。
+
+	/**
+     * {@inheritDoc}
+     */
+    @Override
+    void fillGap(boolean down) {
+        final int count = getChildCount();
+        if (down) {
+            int paddingTop = 0;
+            if ((mGroupFlags & CLIP_TO_PADDING_MASK) == CLIP_TO_PADDING_MASK) {
+                paddingTop = getListPaddingTop();
+            }
+            final int startOffset = count > 0 ? getChildAt(count - 1).getBottom() + mDividerHeight :
+                    paddingTop;
+            fillDown(mFirstPosition + count, startOffset);
+            correctTooHigh(getChildCount());
+        } else {
+            int paddingBottom = 0;
+            if ((mGroupFlags & CLIP_TO_PADDING_MASK) == CLIP_TO_PADDING_MASK) {
+                paddingBottom = getListPaddingBottom();
+            }
+            final int startOffset = count > 0 ? getChildAt(0).getTop() - mDividerHeight :
+                    getHeight() - paddingBottom;
+            fillUp(mFirstPosition - 1, startOffset);
+            correctTooLow(getChildCount());
+        }
+    }
+
+可以看到在此方法中仍然调用了fillDown()方法，那么继续执行之前的逻辑，调用makeAndAddView()方法，在此方法中由于从mActiveViews获取视图后都会将视图从mActiveViews中删除，所以我们尝试从mActiveViews中获取的child为空，因此继续执行obtainView()，在obtainView中我们会尝试从mScrapViews中获取可重用的视图，此时若有视图已经被缓存值mScrapViews，那么我们直接获取到一个可重用的视图并传入适配器的getView()方法中作为convertView，此时convertView不为空，如果其ViewType满足我们的要求的话我们只需重新进行数据绑定即可，绑定成功后将child返回并将recycled设置为true，不过存在重新绑定数据失败，即适配器的getView()方法返回的child与我们获取到的scrapView不同，例如当我们缓存了ViewTypeA的视图用来复用，但我们需要加载一个ViewTypeB的视图时，此时convertView虽不为空，但由于其ViewType类型不同，因此我们仍需从xml文件中加载一个ViewTypeB的视图并返回为child，此时需要将我们之前取出的scrapView重新放回mScrapViews中，并将recycled设置为false。
+
+#### 一个栗子
+
+![test_image_1](https://ooo.0o0.ooo/2015/09/29/56096325c7217.png)
+
+![test_image_2](https://ooo.0o0.ooo/2015/09/29/56096339d2eda.png)
+
+![test_image_3](https://ooo.0o0.ooo/2015/09/29/560963255ebae.png)
+
+![test_image_4](https://ooo.0o0.ooo/2015/09/29/56096326786b4.png)
+
+09-28 11:48:24.125    2607-2607/com.guoyonghui.listview D/TRAINING﹕ com.guoyonghui.listview.SceneActivity$SceneListAdapter.getView(), Line:110 (SceneActivity.java) convertView is null
+
+09-28 11:48:24.126    2607-2607/com.guoyonghui.listview D/TRAINING﹕ com.guoyonghui.listview.SceneActivity$SceneListAdapter.getView(), Line:110 (SceneActivity.java) convertView is null
+
+09-28 11:48:24.126    2607-2607/com.guoyonghui.listview D/TRAINING﹕ com.guoyonghui.listview.SceneActivity$SceneListAdapter.getView(), Line:110 (SceneActivity.java) convertView is null
+
+09-28 11:48:27.217    2607-2607/com.guoyonghui.listview D/TRAINING﹕ com.guoyonghui.listview.SceneActivity$SceneListAdapter.getView(), Line:110 (SceneActivity.java) convertView is null
+
+09-28 11:48:33.328    2607-2607/com.guoyonghui.listview D/TRAINING﹕ com.guoyonghui.listview.SceneActivity$SceneListAdapter.getView(), Line:114 (SceneActivity.java) convertView is not null
+
+上面的四张图片以及log信息记录了我们使用一个ListView的一些基本信息，我们可以看到，在第一张测试图中ListView被初次加载，一屏所显示的图片数量是3张，根据logcat记录，在这三个子视图的getView()方法中convertView均为空，而在第二张测试图中，第四张图片开始滑入屏幕，然而此时第一张图片并未完全滑出屏幕，因此此时仍没有任何试图被添加至mScrapViews中，所以加载第四张图片时传入getView()方法的convertView参数仍为null，那么当我们继续往下滑动时，在第五张图片滑入屏幕时第一张图片已滑出屏幕，因此第一个子视图被加入到mScrapView中等待被重用，继续往下滑动，当第五张图片滑入屏幕时我们可以看到第五个子视图上显示的图片正是被加入到缓存中的第一个子视图所加载的图片，当然当异步加载图片完成后第五个子视图会显示正确的图片，如第四张测试图上所显示，第五个子视图已经加载了正确的图片。
+
+### 至此，完成了视图的复用与数据的重新绑定。
+
+以上便是我对ListView缓存机制的一些理解。
+
+[Source Code](https://github.com/tomatoguo/Android-Training)
