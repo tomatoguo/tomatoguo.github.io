@@ -8,16 +8,16 @@ categories: android
 
 ### ListView缓存机制
 
-Android中的ListView是用于显示列表的控件。当我们的数据比较多时，例如我们使用ListView来显示图片，将有1000张甚至更多图片需要显示，如果我们将所有数据都装载到内存中，那么极有可能发生OOM，因此ListView使用了一个缓存机制来更高效地加载数据。
+Android中的ListView是用于显示列表的控件。当我们的数据比较多时，例如我们使用ListView来显示图片，将有1000张甚至更多图片需要显示，如果我们将所有数据都装载到内存中，那么极有可能发生OOM，因此ListView使用缓存机制来更高效地加载数据。
 
 ![listview_structure](https://ooo.0o0.ooo/2015/09/28/56094c520c856.png)
 
-从上图中我们可以看到ListView继承自AbsListView，AbsListView同时也是GridView的父类，AbsListView继承自AdapterView，我们也可以看到，ListView的本质仍然是一个View，因此需调用绘制一个View过程中的onMeasure()、onLayout()和onDraw()方法。
+从上图中我们可以看到ListView继承自AbsListView，AbsListView同时也是GridView的父类，AbsListView继承自AdapterView，我们也可以看到，ListView的本质仍然是一个View，因此需调用绘制一个View过程中需要调用的的onMeasure()、onLayout()和onDraw()方法。
 
-ListView缓存机制的实现主要依靠于AbsListView中的RecycleBin类，RecycleBin类中有几个重要的变量：
+ListView缓存机制的实现主要依靠AbsListView中的RecycleBin类，RecycleBin类中有几个重要的变量：
 
-*	mActiveViews，类型为View数组，当初次加载布局ListView时会使用到。
-*	mScrapViews，类型为ArrayList<View>数组，每个数组中的每一个ArrayList<View>对应于一种ViewType，而每一个ArrayList<View>中则包含对应的ViewType的可复用的视图。
+*	mActiveViews，类型为View数组，当初次加载ListView时会使用到。
+*	mScrapViews，类型为ArrayList<View>数组，数组中的每一个ArrayList<View>对应于一种ViewType，而每一个ArrayList<View>中则包含对应的ViewType的可复用的视图。
 
 接下来我们从ListView的onLayout()方法看起，在ListView中并没有该方法的实现，而是在其父类AbsListView中实现的。
 
@@ -46,7 +46,7 @@ ListView缓存机制的实现主要依靠于AbsListView中的RecycleBin类，Rec
 	    }
 	}
 
-在这个方法中，首先获取到子视图的数量（即列表项视图的个数），由于我们是第一次加载ListView因此此时没有任何子视图存在，如果当前视图发生变化，那么会强制每一个子视图在下一次布局时进行重新布局。
+在这个方法中，首先获取到子视图的数量（即列表项视图的个数），由于我们是第一次加载ListView所以此时没有任何子视图存在，如果当前视图发生变化，那么会强制每一个子视图在下一次布局时进行重新布局。
 
 接下来我们可以看到在onLayout()方法中调用了layoutChildren()方法，此方法在AbsListView类中声明，在其子类中实现，所以我们看到ListView中的layoutChildren()方法，layoutChildren()方法略长，在此只贴出我理解的一部分代码。
 
@@ -282,7 +282,7 @@ fillDown(int pos, int nextTop)方法中计算当前ListView的底部位置，并
         return child;
     }
 
-该方法中会尝试从mScrapViews中获取可重用的视图，然而目前为止并没有任何试图被缓存，因此在我们调用mAdapter.getView(position, scrapView, this)方法时传入的scrapView为null，这便对应着我们写ListView的适配器的getView(int position, View convertView, ViewGroup parent)方法，及初次加载时传入的convertView总是空的，因此我们需要使用LayoutInflater来从xml文件中加载一个布局。由于scrapView为空，因此我们直接返回child，同时isScrap[0]为false。
+该方法中会尝试从mScrapViews中获取可重用的视图，然而目前为止并没有任何试图被缓存，因此在我们调用mAdapter.getView(position, scrapView, this)方法时传入的scrapView为null，这便对应着我们写ListView的适配器的getView(int position, View convertView, ViewGroup parent)方法，即初次加载时传入的convertView总是空的，因此我们需要使用LayoutInflater来从xml文件中加载一个布局。由于scrapView为空，因此我们直接返回child，同时isScrap[0]为false。
 
 接下来便返回到makeAndAddView(int position, int y, boolean flow, int childrenLeft, boolean selected)方法中并执行setupChild操作。
 
@@ -319,11 +319,11 @@ fillDown(int pos, int nextTop)方法中计算当前ListView的底部位置，并
     
     }
 
-在这里我们传入isScrap[0]作为recycled的值，即标识这该视图并不是重用的视图，因此需要调用addViewInLayout()方法将其添加到ListView中。
+在这里我们传入isScrap[0]作为recycled的值，即标识该视图并不是重用的视图，因此需要调用addViewInLayout()方法将其添加到ListView中。
 
 至此，onLayout()方法的第一次调用基本完毕，由于第一次调用onLayout()前ListView中无任何子视图存在，而在第一次调用onLayout()后我们已经加载了第一屏的视图，因此父视图即ListView的状态会发生改变，从而使得onLayout()方法被第二次调用，在第一次的调用中我们从xml文件中加载了第一页的子视图的布局，这些操作是费时操作，如果第二次重复执行这些操作，显然会产生不必要的开销，那么我们来看下当第二次onLayout()调用时是怎样的一个执行过程。
 
-当第二次调用时，同样执行到recycleBin.fillActiveViews(childCount, firstPosition)这行代码，但是由于此时我们已经加载了第一屏视图，因此childCount不再为0，所以执行此行代码会将当前加载的第一屏视图填充到mActiveViews中，而在第一次onLayout()调用中然并卵的detachAllViewsFromParent()此时经过执行会将第一次加载到屏幕上的第一屏子视图全部移除从而为第二次的加载做好准备。同样进入下面的switch的default分支中，此时childCount不为0，因此执行到else分支，一般来说第一个可见视图的位置会小于子视图总数，因此会指定到内嵌的else if分支，即执行fillSpecific()方法，跟进。
+当第二次调用时，同样执行到recycleBin.fillActiveViews(childCount, firstPosition)这行代码，但是由于此时我们已经加载了第一屏视图，因此childCount不再为0，所以执行此行代码会将当前加载的第一屏视图填充到mActiveViews中，而在第一次onLayout()调用中然并卵的detachAllViewsFromParent()此时经过执行会将第一次加载到屏幕上的第一屏子视图全部移除从而为第二次的加载做好准备。同样进入下面的switch的default分支中，此时childCount不为0，因此执行到else分支，一般来说第一个可见视图的位置会小于子视图总数，因此会执行到else if分支，即执行fillSpecific()方法，跟进。
 
 在fillSpecific()方法中依然会执行fillDown()方法然后在while循环中调用makeAndAddView(pos, nextTop, true, mListPadding.left, selected)，由于此时我们已经使用了第一屏的子视图来填充mActiveViews，因此在makeAndAddView()方法中我们可以直接从RecycleBin中的mActiveViews中获取到已经加载完毕的可重用的视图，并调用setupChild()方法，此时传入的recycled的值为true，此时直接将该child重新attach到ListView上即可而不用再调用addViewInLayout()方法。
 
@@ -428,7 +428,7 @@ fillDown(int pos, int nextTop)方法中计算当前ListView的底部位置，并
         }
     }
 
-可以看到在此方法中仍然调用了fillDown()方法，那么继续执行之前的逻辑，调用makeAndAddView()方法，在此方法中由于从mActiveViews获取视图后都会将视图从mActiveViews中删除，所以我们尝试从mActiveViews中获取的child为空，因此继续执行obtainView()，在obtainView中我们会尝试从mScrapViews中获取可重用的视图，此时若有视图已经被缓存值mScrapViews，那么我们直接获取到一个可重用的视图并传入适配器的getView()方法中作为convertView，此时convertView不为空，如果其ViewType满足我们的要求的话我们只需重新进行数据绑定即可，绑定成功后将child返回并将recycled设置为true，不过存在重新绑定数据失败，即适配器的getView()方法返回的child与我们获取到的scrapView不同，例如当我们缓存了ViewTypeA的视图用来复用，但我们需要加载一个ViewTypeB的视图时，此时convertView虽不为空，但由于其ViewType类型不同，因此我们仍需从xml文件中加载一个ViewTypeB的视图并返回为child，此时需要将我们之前取出的scrapView重新放回mScrapViews中，并将recycled设置为false。
+可以看到在此方法中仍然调用了fillDown()方法，那么继续执行之前的逻辑，调用makeAndAddView()方法，在此方法中由于从mActiveViews获取视图后都会将视图从mActiveViews中删除，所以我们尝试从mActiveViews中获取的child为空，因此继续执行obtainView()，在obtainView中我们会尝试从mScrapViews中获取可重用的视图，此时若有视图已经被缓存至mScrapViews，那么我们直接获取到一个可重用的视图并传入适配器的getView()方法中作为convertView，此时convertView不为空，如果其ViewType满足我们的要求的话我们只需重新进行数据绑定即可，绑定成功后将child返回并将recycled设置为true，不过存在重新绑定数据失败的情况，即适配器的getView()方法返回的child与我们获取到的scrapView不同，例如当我们缓存了ViewTypeA的视图用来复用，但我们需要加载一个ViewTypeB的视图时，此时convertView虽不为空，但由于其ViewType不同，因此我们仍需从xml文件中加载一个ViewTypeB的视图并返回为child，此时需要将我们之前取出的scrapView重新放回mScrapViews中，并将recycled设置为false。
 
 #### 一个栗子
 
@@ -450,7 +450,7 @@ fillDown(int pos, int nextTop)方法中计算当前ListView的底部位置，并
 
 09-28 11:48:33.328    2607-2607/com.guoyonghui.listview D/TRAINING﹕ com.guoyonghui.listview.SceneActivity$SceneListAdapter.getView(), Line:114 (SceneActivity.java) convertView is not null
 
-上面的四张图片以及log信息记录了我们使用一个ListView的一些基本信息，我们可以看到，在第一张测试图中ListView被初次加载，一屏所显示的图片数量是3张，根据logcat记录，在这三个子视图的getView()方法中convertView均为空，而在第二张测试图中，第四张图片开始滑入屏幕，然而此时第一张图片并未完全滑出屏幕，因此此时仍没有任何试图被添加至mScrapViews中，所以加载第四张图片时传入getView()方法的convertView参数仍为null，那么当我们继续往下滑动时，在第五张图片滑入屏幕时第一张图片已滑出屏幕，因此第一个子视图被加入到mScrapView中等待被重用，继续往下滑动，当第五张图片滑入屏幕时我们可以看到第五个子视图上显示的图片正是被加入到缓存中的第一个子视图所加载的图片，当然当异步加载图片完成后第五个子视图会显示正确的图片，如第四张测试图上所显示，第五个子视图已经加载了正确的图片，从logcat记录的信息中也可以发现当加载第五个子视图时，convertView不为空。
+上面的四张图片以及log信息记录了ListView加载过程中的一些基本信息，我们可以看到，在第一张测试图中ListView被初次加载，一屏所显示的图片数量是3张，根据logcat记录，在这三个子视图的getView()方法中convertView均为空，而在第二张测试图中，第四张图片开始滑入屏幕，然而此时第一张图片并未完全滑出屏幕，因此此时仍没有任何视图被添加至mScrapViews中，所以加载第四张图片时传入getView()方法的convertView参数仍为null，那么当我们继续往下滑动时，第一个子视图滑出屏幕后被加入到mScrapView中等待被重用，继续往下滑动，当第五张图片滑入屏幕时我们可以看到第五个子视图上显示的图片正是被加入到缓存中的第一个子视图所加载的图片，当然当异步加载图片完成后第五个子视图会显示正确的图片，如第四张测试图上所显示，第五个子视图已经加载了正确的图片，从logcat记录的信息中也可以发现当加载第五个子视图时，convertView不为空。
 
 ### 至此，完成了视图的复用与数据的重新绑定。在本示例中，即使需要显示10000+张图片也只需要创建4个子视图，并通过复用这4个子视图来完成所有图片的显示。
 
